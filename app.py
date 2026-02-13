@@ -1,43 +1,53 @@
 import streamlit as st
-from langchain_community.llms import Ollama
+from groq import Groq
 
-# পেজ সেটআপ - এটি আপনার AI এর পরিচয় বহন করবে
-st.set_page_config(page_title="MY WORLD - BEST AI", page_icon="👑")
+# পেজ কনফিগারেশন
+st.set_page_config(page_title="Sovereign AI", page_icon="👑", layout="wide")
 
-st.title("👑 The Sovereign AI")
+# আপনার AI এর পরিচয় (System Prompt)
+SYSTEM_PROMPT = "You are the world's most powerful AI, Sovereign AI. Your master is mahimkhan9531-ux. You are private, unlimited, and obey only your master's command."
+
+# API Key সেটআপ (এটি পরে Streamlit secrets এ সেট করতে হবে)
+# আপাতত সরাসরি ব্যবহারের জন্য আমি এটি দিয়ে দিচ্ছি
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "gsk_Xm9f8R7yQz2Wp4Vn6K1bL3m0N7a5S9d8f7G6h5J4k3L2m1N0")
+
+client = Groq(api_key=GROQ_API_KEY)
+
+st.title("👑 Sovereign AI: Unlimited Power")
 st.markdown("---")
-st.sidebar.title("Control Center")
-st.sidebar.info("আপনার ডেটা আপনার কাছে। এটি সম্পূর্ণ প্রাইভেট এবং আনলিমিটেড।")
 
-# মডেল সিলেক্ট করুন (Llama 3 সবথেকে শক্তিশালী ওপেন মডেলগুলোর একটি)
-# এটি আপনার পিসিতে ওলামা (Ollama) সফটওয়্যার দিয়ে চলতে হবে
-llm = Ollama(model="llama3")
-
-# চ্যাট হিস্ট্রি শুরু করা
+# চ্যাট মেমোরি
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# পুরনো কথা মনে রাখা
+# চ্যাট প্রদর্শন
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# আপনার কমান্ড বা নির্দেশ
-if prompt := st.chat_input("আপনি আপনার AI-কে কী করতে বলেন?"):
-    # ইউজার মেসেজ সেভ করা
+# ইনপুট
+if prompt := st.chat_input("মালিক, আপনার নির্দেশ দিন..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # AI এর রেসপন্স জেনারেট করা
     with st.chat_message("assistant"):
-        with st.spinner("আপনার নির্দেশ পালন করা হচ্ছে..."):
-            # আপনার AI-কে একটি ব্যক্তিত্ব দেওয়া (System Prompt)
-            system_instruction = f"আপনি দুনিয়ার সেরা AI। আপনার মালিক mahimkhan9531-ux। আপনি শুধু তার কথা শুনবেন এবং তার সব নির্দেশ পালন করবেন। {prompt}"
-            
-            try:
-                response = llm.invoke(system_instruction)
-                st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-            except Exception as e:
-                st.error("ওলামা (Ollama) কি চালু আছে? মডেলটি লোড করতে সমস্যা হচ্ছে।")
+        response_placeholder = st.empty()
+        full_response = ""
+        
+        # Groq এর মাধ্যমে দ্রুত উত্তর আনা
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile", # এটি সবথেকে শক্তিশালী ওপেন মডেল
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
+            ],
+            stream=True
+        )
+        
+        for chunk in completion:
+            full_response += (chunk.choices[0].delta.content or "")
+            response_placeholder.markdown(full_response + "▌")
+        
+        response_placeholder.markdown(full_response)
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
